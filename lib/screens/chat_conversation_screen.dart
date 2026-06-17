@@ -25,6 +25,7 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
   final List<String> _styles = ['brainrot', 'soutenu', 'debile'];
 
   bool _isTyping = false;
+  bool _isSending = false;
 
   @override
   void initState() {
@@ -38,8 +39,9 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
 
   Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty || _isSending) return;
     
+    setState(() => _isSending = true);
     _messageController.clear();
     
     try {
@@ -68,6 +70,10 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Erreur: $e"), backgroundColor: Colors.red),
         );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSending = false);
       }
     }
   }
@@ -231,15 +237,20 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                   const SizedBox(width: 8),
                   // Bouton envoyer
                   GestureDetector(
-                    onTap: _isTyping ? _sendMessage : null,
+                    onTap: (_isTyping && !_isSending) ? _sendMessage : null,
                     child: Container(
                       width: 44,
                       height: 44,
                       decoration: BoxDecoration(
-                        color: _isTyping ? const Color(0xFF4CAF50) : Colors.grey[400],
+                        color: (_isTyping && !_isSending) ? const Color(0xFF4CAF50) : Colors.grey[400],
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                      child: _isSending
+                          ? const Padding(
+                              padding: EdgeInsets.all(12.0),
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                            )
+                          : const Icon(Icons.send_rounded, color: Colors.white, size: 20),
                     ),
                   ),
                 ],
