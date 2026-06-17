@@ -18,7 +18,7 @@ serve(async (req) => {
 
     const prompt = `${instruction} Voici le message : "${original_message}". Ne renvoie QUE le message modifié, sans aucun autre commentaire.`;
 
-    const geminiApiKey = Deno.env.get('GEMINI_API_KEY') ?? 'VOTRE_CLE_API';
+    const geminiApiKey = Deno.env.get('GEMINI_API_KEY') ?? '';
 
     const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${geminiApiKey}`, {
       method: 'POST',
@@ -37,8 +37,8 @@ serve(async (req) => {
     const alteredMessage = geminiData.candidates[0].content.parts[0].text
 
     const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? 'https://fsnjwqjicwpiljmjpich.supabase.co',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? 'VOTRE_CLE_ANON',
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       {
         global: {
           headers: { Authorization: req.headers.get('Authorization')! },

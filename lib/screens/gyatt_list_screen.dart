@@ -64,7 +64,6 @@ class _GyattListScreenState extends State<GyattListScreen>
           id: p['id'],
           name: p['username'] ?? 'Utilisateur',
           avatarUrl: p['avatar_url'] ?? 'https://i.pravatar.cc/150?u=${p['id']}',
-          isOnline: true,
           isContact: friendIds.contains(p['id']),
         );
         
@@ -301,7 +300,9 @@ class _GyattListScreenState extends State<GyattListScreen>
             ),
             child: CircleAvatar(
               radius: 28,
-              backgroundImage: NetworkImage(contact.avatarUrl),
+              backgroundImage: contact.avatarUrl.startsWith('assets/') 
+                  ? AssetImage(contact.avatarUrl) as ImageProvider 
+                  : NetworkImage(contact.avatarUrl),
               backgroundColor: Colors.grey[200],
             ),
           ),
@@ -313,11 +314,6 @@ class _GyattListScreenState extends State<GyattListScreen>
                 Text(
                   contact.name,
                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.black87),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  contact.isOnline ? "En ligne" : "Hors ligne",
-                  style: TextStyle(fontSize: 13, color: Colors.grey[500]),
                 ),
               ],
             ),
@@ -369,7 +365,9 @@ class _GyattListScreenState extends State<GyattListScreen>
             ),
             child: CircleAvatar(
               radius: 28,
-              backgroundImage: NetworkImage(contact.avatarUrl),
+              backgroundImage: contact.avatarUrl.startsWith('assets/') 
+                  ? AssetImage(contact.avatarUrl) as ImageProvider 
+                  : NetworkImage(contact.avatarUrl),
               backgroundColor: Colors.grey[200],
             ),
           ),
@@ -381,11 +379,6 @@ class _GyattListScreenState extends State<GyattListScreen>
                 Text(
                   contact.name,
                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.black87),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  contact.isOnline ? "En ligne" : "Hors ligne",
-                  style: TextStyle(fontSize: 13, color: Colors.grey[500]),
                 ),
               ],
             ),

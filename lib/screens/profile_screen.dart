@@ -160,7 +160,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         child: CircleAvatar(
                           radius: 58,
-                          backgroundImage: NetworkImage(_avatarUrl),
+                          backgroundImage: _avatarUrl.startsWith('assets/')
+                              ? AssetImage(_avatarUrl) as ImageProvider
+                              : NetworkImage(_avatarUrl),
                           backgroundColor: Colors.white,
                         ),
                       ),

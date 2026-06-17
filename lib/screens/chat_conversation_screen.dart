@@ -105,7 +105,9 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                     ),
                     CircleAvatar(
                       radius: 20,
-                      backgroundImage: NetworkImage(widget.chat.avatarUrl),
+                      backgroundImage: widget.chat.avatarUrl.startsWith('assets/') 
+                          ? AssetImage(widget.chat.avatarUrl) as ImageProvider 
+                          : NetworkImage(widget.chat.avatarUrl),
                       backgroundColor: Colors.white24,
                     ),
                     const SizedBox(width: 10),
@@ -162,7 +164,13 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                     final msgMap = messagesData[index - 1];
                     final isMe = msgMap['sender_id'] == myId;
                     final text = msgMap['text'] ?? '';
-                    final time = 'Maintenant'; // Format map['created_at'] here if desired
+                    
+                    final createdAt = msgMap['created_at'];
+                    String time = 'Maintenant';
+                    if (createdAt != null) {
+                      final dt = DateTime.parse(createdAt).toLocal();
+                      time = '${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
+                    }
                     
                     final msg = _Message(text: text, isMe: isMe, time: time);
                     return _buildBubble(msg);

@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -36,10 +37,45 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _isLoading = true);
 
     try {
-      await Supabase.instance.client.auth.signUp(
+      final authResponse = await Supabase.instance.client.auth.signUp(
         email: email,
         password: password,
       );
+
+      // Select random avatar
+      final random = Random();
+      final images = [
+        '540px-Kiwidindun.png',
+        '599px-Laranjini_cozzolini.png',
+        '600px-A5c43eca-e695-4b45-829c-b6356f68d243.png',
+        '600px-Brr_brr_patapim_without_text.jpeg',
+        '600px-Chachecha_Chuchu.png',
+        '601850585_1131054.gif',
+        '99hnur.jpg',
+        'Brr_brr_patatree.png',
+        'QuandaleDingle.webp',
+        'Screenshot_2025-12-03_7.58.41_AM.png',
+        'Snooffi_Zeffirulli.webp',
+        'Tung_tung_tung_sahur.png',
+        'Udin_din_din_din_dun.jpg',
+        'XD_XD_XD_Sahur.png',
+        'b8fb45c9a3fc747a19d98122e0027604.jpg',
+        'bglflv73c66h1.png',
+        'geeked-patrick-tongue-patrick.png',
+        'oar2.jpg',
+        'rat-dumb.gif',
+      ];
+      final randomImage = images[random.nextInt(images.length)];
+      final avatarUrl = 'assets/images/pp/$randomImage';
+
+      if (authResponse.user != null) {
+        await Supabase.instance.client.from('profiles').upsert({
+          'id': authResponse.user!.id,
+          'username': email.split('@').first,
+          'avatar_url': avatarUrl,
+        });
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
