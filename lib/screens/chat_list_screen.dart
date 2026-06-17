@@ -1,11 +1,91 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/message_model.dart';
 import 'chat_conversation_screen.dart';
 import 'gyatt_list_screen.dart';
 
-class ChatListScreen extends StatelessWidget {
+class ChatListScreen extends StatefulWidget {
   const ChatListScreen({super.key});
+
+  @override
+  State<ChatListScreen> createState() => _ChatListScreenState();
+}
+
+class _ChatListScreenState extends State<ChatListScreen> {
+  List<ChatMessage> _chats = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadChats();
+  }
+
+  Future<void> _loadChats() async {
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+
+    try {
+      final supabase = Supabase.instance.client;
+      final userId = supabase.auth.currentUser!.id;
+
+      final friendsRes = await supabase.from('friends').select('friend_id').eq('user_id', userId);
+      final friendIds = (friendsRes as List).map((e) => e['friend_id'] as String).toList();
+
+      if (friendIds.isEmpty) {
+        if (mounted) setState(() { _chats = []; _isLoading = false; });
+        return;
+      }
+
+      final profilesRes = await supabase.from('profiles').select().inFilter('id', friendIds);
+      final Map<String, dynamic> profiles = { for (var p in (profilesRes as List)) p['id'] : p };
+
+      List<ChatMessage> loadedChats = [];
+      for (String fId in friendIds) {
+        final profile = profiles[fId] ?? {};
+        final name = profile['name'] ?? 'Ami';
+        final avatar = profile['avatar_url'] ?? 'https://i.pravatar.cc/150?u=$fId';
+
+        final messagesRes = await supabase
+            .from('messages')
+            .select()
+            .or('and(sender_id.eq.$userId,recipient_id.eq.$fId),and(sender_id.eq.$fId,recipient_id.eq.$userId)')
+            .order('created_at', ascending: false)
+            .limit(1);
+
+        String lastMsg = 'Nouvelle conversation';
+        String timeStr = '';
+
+        if ((messagesRes as List).isNotEmpty) {
+          final msg = messagesRes.first;
+          lastMsg = msg['altered_text'] ?? msg['content'] ?? 'Message';
+          final dt = DateTime.parse(msg['created_at']).toLocal();
+          timeStr = '${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
+        }
+
+        loadedChats.add(ChatMessage(
+          id: fId,
+          senderName: name,
+          lastMessage: lastMsg,
+          time: timeStr,
+          avatarUrl: avatar,
+          isRead: true,
+          unreadCount: 0,
+          isOnline: true,
+        ));
+      }
+
+      if (mounted) {
+        setState(() {
+          _chats = loadedChats;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("Erreur chargement chats: $e");
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,10 +121,13 @@ class ChatListScreen extends StatelessWidget {
                       children: [
                         _headerIconButton(
                           Icons.person_add_rounded,
-                          () => Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const GyattListScreen()),
-                          ),
+                          () async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const GyattListScreen()),
+                            );
+                            _loadChats(); // Recharge les chats au retour
+                          },
                         ),
                         const SizedBox(width: 4),
                         _headerIconButton(Icons.person_rounded, () {}),
@@ -58,14 +141,21 @@ class ChatListScreen extends StatelessWidget {
 
           // Liste des chats
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.only(top: 8),
-              itemCount: mockChats.length,
-              itemBuilder: (context, index) {
-                final chat = mockChats[index];
-                return _buildChatTile(context, chat);
-              },
-            ),
+            child: _isLoading 
+              ? const Center(child: CircularProgressIndicator())
+              : _chats.isEmpty 
+                ? const Center(child: Text("Aucune conversation. Ajoute des amis !"))
+                : RefreshIndicator(
+                    onRefresh: _loadChats,
+                    child: ListView.builder(
+                      padding: const EdgeInsets.only(top: 8),
+                      itemCount: _chats.length,
+                      itemBuilder: (context, index) {
+                        final chat = _chats[index];
+                        return _buildChatTile(context, chat);
+                      },
+                    ),
+                  ),
           ),
         ],
       ),
