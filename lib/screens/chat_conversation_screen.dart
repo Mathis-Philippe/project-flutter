@@ -21,12 +21,19 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
-  String _selectedStyle = 'normal';
-  final List<String> _styles = ['normal', 'brainrot', 'soutenu', 'debile'];
+  String _selectedStyle = 'brainrot';
+  final List<String> _styles = ['brainrot', 'soutenu', 'debile'];
+
+  bool _isTyping = false;
 
   @override
   void initState() {
     super.initState();
+    _messageController.addListener(() {
+      setState(() {
+        _isTyping = _messageController.text.trim().isNotEmpty;
+      });
+    });
   }
 
   Future<void> _sendMessage() async {
@@ -115,10 +122,7 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                         ],
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.more_vert, color: Colors.white),
-                      onPressed: () {},
-                    ),
+                    const SizedBox(width: 16),
                   ],
                 ),
               ),
@@ -225,25 +229,14 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  // Bouton paramètres
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF4CAF50),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.settings_rounded, color: Colors.white, size: 22),
-                  ),
-                  const SizedBox(width: 8),
                   // Bouton envoyer
                   GestureDetector(
-                    onTap: _sendMessage,
+                    onTap: _isTyping ? _sendMessage : null,
                     child: Container(
                       width: 44,
                       height: 44,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF4CAF50).withOpacity(0.5),
+                        color: _isTyping ? const Color(0xFF4CAF50) : Colors.grey[400],
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
