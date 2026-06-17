@@ -22,7 +22,7 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
   final ScrollController _scrollController = ScrollController();
 
   String _selectedStyle = 'normal';
-  final List<String> _styles = ['normal', 'pirate', 'yoda', 'soutenu', 'wesh'];
+  final List<String> _styles = ['normal', 'brainrot', 'soutenu', 'debile'];
 
   @override
   void initState() {
@@ -39,8 +39,9 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
       await Supabase.instance.client.functions.invoke(
         'alter_message',
         body: {
-          'original_text': text,
-          'recipient_id': widget.chat.id,
+          'sender_id': Supabase.instance.client.auth.currentUser!.id,
+          'receiver_id': widget.chat.id,
+          'original_message': text,
           'style': _selectedStyle,
         },
       );
