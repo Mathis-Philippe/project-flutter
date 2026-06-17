@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/message_model.dart';
 
 class _Message {
@@ -20,36 +21,42 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
-  late List<_Message> _messages;
+  String _selectedStyle = 'normal';
+  final List<String> _styles = ['normal', 'pirate', 'yoda', 'soutenu', 'wesh'];
 
   @override
   void initState() {
     super.initState();
-    _messages = [
-      _Message(text: "Skibidi, aura testing", isMe: false, time: "09:27"),
-      _Message(text: ">100000 aura, toi ?", isMe: true, time: "09:28"),
-      _Message(text: widget.chat.lastMessage, isMe: false, time: "10:22"),
-    ];
   }
 
-  void _sendMessage() {
+  Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
-    setState(() {
-      _messages.add(_Message(
-        text: text,
-        isMe: true,
-        time: TimeOfDay.now().format(context),
-      ));
-    });
+    
     _messageController.clear();
-    Future.delayed(const Duration(milliseconds: 100), () {
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
+    
+    try {
+      await Supabase.instance.client.functions.invoke(
+        'alter_message',
+        body: {
+          'original_text': text,
+          'recipient_id': widget.chat.senderName, // ou un vrai ID de contact si disponible
+          'style': _selectedStyle,
+        },
       );
-    });
+      
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
+      });
+    } catch (e) {
+      debugPrint("Erreur Supabase: $e");
+    }
   }
 
   @override
@@ -114,14 +121,35 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
 
           // Messages
           Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              itemCount: _messages.length + 1, // +1 pour le séparateur de date
-              itemBuilder: (context, index) {
-                if (index == 0) return _buildDateChip("16 juin 2026");
-                final msg = _messages[index - 1];
-                return _buildBubble(msg);
+            child: StreamBuilder<List<Map<String, dynamic>>>(
+              stream: Supabase.instance.client
+                  .from('messages')
+                  .stream(primaryKey: ['id'])
+                  .order('created_at', ascending: true),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                
+                final messagesData = snapshot.data!;
+                
+                return ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  itemCount: messagesData.length + 1,
+                  itemBuilder: (context, index) {
+                    if (index == 0) return _buildDateChip("Aujourd'hui");
+                    
+                    final msgMap = messagesData[index - 1];
+                    // Adapt the keys below to your actual Supabase table schema
+                    final isMe = msgMap['is_me'] == true || msgMap['sender_id'] == 'me';
+                    final text = msgMap['content'] ?? msgMap['text'] ?? '';
+                    final time = 'Maintenant'; // Format map['created_at'] here if desired
+                    
+                    final msg = _Message(text: text, isMe: isMe, time: time);
+                    return _buildBubble(msg);
+                  },
+                );
               },
             ),
           ),
@@ -134,6 +162,34 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
               top: false,
               child: Row(
                 children: [
+                  // Dropdown pour choisir la personnalité IA
+                  Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0F0F5),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _selectedStyle,
+                        icon: const Icon(Icons.psychology, color: Color(0xFF8A46FF)),
+                        items: _styles.map((String style) {
+                          return DropdownMenuItem<String>(
+                            value: style,
+                            child: Text(style, style: const TextStyle(fontSize: 14)),
+                          );
+                        }).toList(),
+                        onChanged: (String? newValue) {
+                          if (newValue != null) {
+                            setState(() {
+                              _selectedStyle = newValue;
+                            });
+                          }
+                        },
+                      ),
+                    ),
+                  ),
                   Expanded(
                     child: Container(
                       decoration: BoxDecoration(
