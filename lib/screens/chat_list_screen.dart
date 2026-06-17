@@ -43,13 +43,13 @@ class _ChatListScreenState extends State<ChatListScreen> {
       List<ChatMessage> loadedChats = [];
       for (String fId in friendIds) {
         final profile = profiles[fId] ?? {};
-        final name = profile['name'] ?? 'Ami';
+        final name = profile['username'] ?? 'Ami';
         final avatar = profile['avatar_url'] ?? 'https://i.pravatar.cc/150?u=$fId';
 
         final messagesRes = await supabase
             .from('messages')
             .select()
-            .or('and(sender_id.eq.$userId,recipient_id.eq.$fId),and(sender_id.eq.$fId,recipient_id.eq.$userId)')
+            .or('and(sender_id.eq.$userId,receiver_id.eq.$fId),and(sender_id.eq.$fId,receiver_id.eq.$userId)')
             .order('created_at', ascending: false)
             .limit(1);
 
@@ -58,7 +58,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
 
         if ((messagesRes as List).isNotEmpty) {
           final msg = messagesRes.first;
-          lastMsg = msg['altered_text'] ?? msg['content'] ?? 'Message';
+          lastMsg = msg['text'] ?? 'Message';
           final dt = DateTime.parse(msg['created_at']).toLocal();
           timeStr = '${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
         }
@@ -83,7 +83,12 @@ class _ChatListScreenState extends State<ChatListScreen> {
       }
     } catch (e) {
       debugPrint("Erreur chargement chats: $e");
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Erreur chats: $e"), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 

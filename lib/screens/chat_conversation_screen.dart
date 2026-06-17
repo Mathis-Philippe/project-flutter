@@ -40,7 +40,7 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
         'alter_message',
         body: {
           'original_text': text,
-          'recipient_id': widget.chat.senderName, // ou un vrai ID de contact si disponible
+          'recipient_id': widget.chat.id,
           'style': _selectedStyle,
         },
       );
@@ -56,6 +56,11 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
       });
     } catch (e) {
       debugPrint("Erreur Supabase: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Erreur: $e"), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 
@@ -131,7 +136,14 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                   return const Center(child: CircularProgressIndicator());
                 }
                 
-                final messagesData = snapshot.data!;
+                final myId = Supabase.instance.client.auth.currentUser!.id;
+                final friendId = widget.chat.id;
+                
+                final messagesData = snapshot.data!.where((msgMap) {
+                  final sId = msgMap['sender_id'];
+                  final rId = msgMap['receiver_id'];
+                  return (sId == myId && rId == friendId) || (sId == friendId && rId == myId);
+                }).toList();
                 
                 return ListView.builder(
                   controller: _scrollController,
@@ -141,9 +153,8 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                     if (index == 0) return _buildDateChip("Aujourd'hui");
                     
                     final msgMap = messagesData[index - 1];
-                    // Adapt the keys below to your actual Supabase table schema
-                    final isMe = msgMap['is_me'] == true || msgMap['sender_id'] == 'me';
-                    final text = msgMap['content'] ?? msgMap['text'] ?? '';
+                    final isMe = msgMap['sender_id'] == myId;
+                    final text = msgMap['text'] ?? '';
                     final time = 'Maintenant'; // Format map['created_at'] here if desired
                     
                     final msg = _Message(text: text, isMe: isMe, time: time);
