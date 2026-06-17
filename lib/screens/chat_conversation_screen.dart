@@ -26,6 +26,8 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
 
   bool _isTyping = false;
   bool _isSending = false;
+  bool _initialScrollDone = false;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -67,9 +69,16 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
     } catch (e) {
       debugPrint("Erreur Supabase: $e");
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Erreur: $e"), backgroundColor: Colors.red),
-        );
+        setState(() => _errorMessage = "réessaye plus tard bro ( 0 aura )");
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (_scrollController.hasClients) {
+            _scrollController.animateTo(
+              _scrollController.position.maxScrollExtent,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            );
+          }
+        });
       }
     } finally {
       if (mounted) {
@@ -146,6 +155,17 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                 if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
                 }
+
+                if (snapshot.hasData && !_initialScrollDone) {
+                  _initialScrollDone = true;
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (_scrollController.hasClients) {
+                      _scrollController.jumpTo(
+                        _scrollController.position.maxScrollExtent,
+                      );
+                    }
+                  });
+                }
                 
                 final myId = Supabase.instance.client.auth.currentUser!.id;
                 final friendId = widget.chat.id;
@@ -156,14 +176,20 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                   return (sId == myId && rId == friendId) || (sId == friendId && rId == myId);
                 }).toList();
                 
+                final messageCount = messagesData.length + 1 + (_errorMessage != null ? 1 : 0);
                 return ListView.builder(
                   controller: _scrollController,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  itemCount: messagesData.length + 1,
+                  itemCount: messageCount,
                   itemBuilder: (context, index) {
                     if (index == 0) return _buildDateChip("Aujourd'hui");
                     
-                    final msgMap = messagesData[index - 1];
+                    final msgIndex = index - 1;
+                    if (_errorMessage != null && msgIndex == messagesData.length) {
+                      return _buildErrorBanner(_errorMessage!);
+                    }
+                    
+                    final msgMap = messagesData[msgIndex];
                     final isMe = msgMap['sender_id'] == myId;
                     final text = msgMap['text'] ?? '';
                     final time = 'Maintenant'; // Format map['created_at'] here if desired
@@ -258,6 +284,34 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildErrorBanner(String message) {
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.red.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.red.shade200),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline, size: 18, color: Colors.red.shade400),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                message,
+                style: TextStyle(color: Colors.red.shade700, fontSize: 13),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
