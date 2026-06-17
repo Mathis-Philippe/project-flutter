@@ -1,7 +1,17 @@
 import 'package:flutter/material.dart';
-import 'navigation_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'screens/auth_gate.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load();
+
+  await Supabase.initialize(
+    url: dotenv.env['SUPABASE_URL'] ?? '',
+    anonKey: dotenv.env['SUPABASE_ANON_KEY'] ?? '',
+  );
+
   runApp(const MyApp());
 }
 
@@ -23,7 +33,7 @@ class MyApp extends StatelessWidget {
         ),
         fontFamily: 'SF Pro Display',
       ),
-      home: const NavigationScreen(),
+      home: const AuthGate(),
     );
   }
 }
