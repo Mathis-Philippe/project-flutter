@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/message_model.dart';
 
 class GyattListScreen extends StatefulWidget {
@@ -13,7 +14,10 @@ class _GyattListScreenState extends State<GyattListScreen>
   late TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
 
-  // Gradient couleur selon l'onglet actif
+  List<Contact> _myContacts = [];
+  List<Contact> _suggestions = [];
+  bool _isLoading = true;
+
   List<Color> get _gradientColors => _tabController.index == 0
       ? [const Color(0xFF8A46FF), const Color(0xFF00BCD4)]
       : [const Color(0xFF4CAF50), const Color(0xFF00BCD4)];
@@ -23,6 +27,80 @@ class _GyattListScreenState extends State<GyattListScreen>
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(() => setState(() {}));
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+    try {
+      final supabase = Supabase.instance.client;
+      final userId = supabase.auth.currentUser!.id;
+      
+      final profilesRes = await supabase.from('profiles').select();
+      final allProfiles = profilesRes as List;
+      
+      final fRes = await supabase.from('friends').select('friend_id').eq('user_id', userId);
+      final friendIds = (fRes as List).map((e) => e['friend_id'] as String).toSet();
+      
+      final List<Contact> contacts = [];
+      final List<Contact> suggests = [];
+      
+      for (var p in allProfiles) {
+        if (p['id'] == userId) continue;
+        
+        final contact = Contact(
+          id: p['id'],
+          name: p['name'] ?? 'Utilisateur',
+          avatarUrl: p['avatar_url'] ?? 'https://i.pravatar.cc/150?u=${p['id']}',
+          isOnline: true,
+          isContact: friendIds.contains(p['id']),
+        );
+        
+        if (contact.isContact) {
+          contacts.add(contact);
+        } else {
+          suggests.add(contact);
+        }
+      }
+      
+      if (mounted) {
+        setState(() {
+          _myContacts = contacts;
+          _suggestions = suggests;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("Erreur lors du chargement des amis: $e");
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _addFriend(String friendId) async {
+    try {
+      final userId = Supabase.instance.client.auth.currentUser!.id;
+      await Supabase.instance.client.from('friends').insert({
+        'user_id': userId,
+        'friend_id': friendId,
+      });
+      _loadData();
+    } catch (e) {
+      debugPrint("Erreur ajout ami: $e");
+    }
+  }
+  
+  Future<void> _removeFriend(String friendId) async {
+    try {
+      final userId = Supabase.instance.client.auth.currentUser!.id;
+      await Supabase.instance.client.from('friends').delete().match({
+        'user_id': userId,
+        'friend_id': friendId,
+      });
+      _loadData();
+    } catch (e) {
+      debugPrint("Erreur suppression ami: $e");
+    }
   }
 
   @override
@@ -101,7 +179,6 @@ class _GyattListScreenState extends State<GyattListScreen>
             ),
           ),
 
-          // Onglets Suggestions / Mes contacts
           Container(
             color: Colors.white,
             padding: const EdgeInsets.all(8),
@@ -136,7 +213,7 @@ class _GyattListScreenState extends State<GyattListScreen>
                       children: [
                         const Text("Suggestions"),
                         const SizedBox(width: 6),
-                        _badge(suggestions.length, const Color(0xFF00BCD4)),
+                        _badge(_suggestions.length, const Color(0xFF00BCD4)),
                       ],
                     ),
                   ),
@@ -146,7 +223,7 @@ class _GyattListScreenState extends State<GyattListScreen>
                       children: [
                         const Text("Mes contacts"),
                         const SizedBox(width: 6),
-                        _badge(myContacts.length, const Color(0xFF4CAF50)),
+                        _badge(_myContacts.length, const Color(0xFF4CAF50)),
                       ],
                     ),
                   ),
@@ -157,13 +234,15 @@ class _GyattListScreenState extends State<GyattListScreen>
 
           // Contenu des onglets
           Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildSuggestionsList(),
-                _buildContactsList(),
-              ],
-            ),
+            child: _isLoading 
+              ? const Center(child: CircularProgressIndicator())
+              : TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildSuggestionsList(),
+                    _buildContactsList(),
+                  ],
+                ),
           ),
         ],
       ),
@@ -184,9 +263,9 @@ class _GyattListScreenState extends State<GyattListScreen>
   Widget _buildSuggestionsList() {
     return ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: suggestions.length,
+      itemCount: _suggestions.length,
       itemBuilder: (context, index) {
-        final contact = suggestions[index];
+        final contact = _suggestions[index];
         return _buildSuggestionTile(contact);
       },
     );
@@ -233,7 +312,7 @@ class _GyattListScreenState extends State<GyattListScreen>
           ),
           // Bouton Ajouter
           ElevatedButton.icon(
-            onPressed: () {},
+            onPressed: () => _addFriend(contact.id),
             icon: const Icon(Icons.person_add_rounded, size: 16),
             label: const Text("Ajouter", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
             style: ElevatedButton.styleFrom(
@@ -252,9 +331,9 @@ class _GyattListScreenState extends State<GyattListScreen>
   Widget _buildContactsList() {
     return ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: myContacts.length,
+      itemCount: _myContacts.length,
       itemBuilder: (context, index) {
-        final contact = myContacts[index];
+        final contact = _myContacts[index];
         return _buildContactTile(contact);
       },
     );
@@ -300,14 +379,17 @@ class _GyattListScreenState extends State<GyattListScreen>
             ),
           ),
           // Bouton Supprimer (X rouge)
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: Colors.red[50],
-              shape: BoxShape.circle,
+          GestureDetector(
+            onTap: () => _removeFriend(contact.id),
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: Colors.red[50],
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.close_rounded, color: Colors.red[400], size: 20),
             ),
-            child: Icon(Icons.close_rounded, color: Colors.red[400], size: 20),
           ),
         ],
       ),
