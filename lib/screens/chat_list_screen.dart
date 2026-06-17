@@ -50,7 +50,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
             .from('messages')
             .select()
             .or('and(sender_id.eq.$userId,receiver_id.eq.$fId),and(sender_id.eq.$fId,receiver_id.eq.$userId)')
-            .order('created_at', ascending: false)
+            .order('id', ascending: false)
             .limit(1);
 
         String lastMsg = 'Nouvelle conversation';
@@ -71,7 +71,6 @@ class _ChatListScreenState extends State<ChatListScreen> {
           avatarUrl: avatar,
           isRead: true,
           unreadCount: 0,
-          isOnline: true,
         ));
       }
 
@@ -186,29 +185,10 @@ class _ChatListScreenState extends State<ChatListScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
-            // Avatar avec indicateur online
-            Stack(
-              children: [
-                CircleAvatar(
-                  radius: 30,
-                  backgroundImage: NetworkImage(chat.avatarUrl),
-                  backgroundColor: Colors.grey[200],
-                ),
-                if (chat.isOnline)
-                  Positioned(
-                    right: 1,
-                    bottom: 1,
-                    child: Container(
-                      width: 14,
-                      height: 14,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF4CAF50),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
-                      ),
-                    ),
-                  ),
-              ],
+            CircleAvatar(
+              radius: 30,
+              backgroundImage: NetworkImage(chat.avatarUrl),
+              backgroundColor: Colors.grey[200],
             ),
             const SizedBox(width: 14),
 
