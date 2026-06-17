@@ -121,10 +121,6 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                               color: Colors.white,
                             ),
                           ),
-                          const Text(
-                            "En ligne",
-                            style: TextStyle(fontSize: 13, color: Colors.white70),
-                          ),
                         ],
                       ),
                     ),

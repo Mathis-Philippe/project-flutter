@@ -6,7 +6,6 @@ class ChatMessage {
   final String avatarUrl;
   final bool isRead;
   final int unreadCount;
-  final bool isOnline;
 
   ChatMessage({
     required this.id,
@@ -16,7 +15,6 @@ class ChatMessage {
     required this.avatarUrl,
     this.isRead = true,
     this.unreadCount = 0,
-    this.isOnline = false,
   });
 }
 
