@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -169,7 +170,9 @@ class ProfileScreen extends StatelessWidget {
                             fontSize: 16,
                           ),
                         ),
-                        onTap: () {},
+                        onTap: () async {
+                          await Supabase.instance.client.auth.signOut();
+                        },
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       ),
                     ),
