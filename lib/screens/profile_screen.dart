@@ -1,8 +1,103 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  String _name = "Chargement...";
+  String _avatarUrl = "https://i.pravatar.cc/150?img=33";
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    try {
+      final supabase = Supabase.instance.client;
+      final userId = supabase.auth.currentUser!.id;
+      final res = await supabase.from('profiles').select().eq('id', userId).single();
+      
+      if (mounted) {
+        setState(() {
+          _name = res['username'] ?? "Utilisateur";
+          _avatarUrl = res['avatar_url'] ?? "https://i.pravatar.cc/150?u=$userId";
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("Erreur profil: $e");
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _editPseudo() async {
+    final controller = TextEditingController(text: _name == "Chargement..." ? "" : _name);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text("Modifier le pseudo"),
+          content: TextField(
+            controller: controller,
+            decoration: const InputDecoration(hintText: "Nouveau pseudo"),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Annuler"),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, controller.text.trim()),
+              child: const Text("Enregistrer"),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (result != null && result.isNotEmpty && result != _name) {
+      final supabase = Supabase.instance.client;
+      try {
+        // Vérification unicité
+        final existing = await supabase.from('profiles').select('id').eq('username', result);
+        if ((existing as List).isNotEmpty) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Ce pseudo est déjà pris !"), backgroundColor: Colors.red),
+            );
+          }
+          return;
+        }
+
+        // Mise à jour (ou création si ça n'existe pas)
+        final userId = supabase.auth.currentUser!.id;
+        await supabase.from('profiles').upsert({'id': userId, 'username': result});
+        
+        if (mounted) {
+          setState(() {
+            _name = result;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Pseudo mis à jour !"), backgroundColor: Colors.green),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Erreur: $e"), backgroundColor: Colors.red),
+          );
+        }
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -63,9 +158,9 @@ class ProfileScreen extends StatelessWidget {
                           ),
                           shape: BoxShape.circle,
                         ),
-                        child: const CircleAvatar(
+                        child: CircleAvatar(
                           radius: 58,
-                          backgroundImage: NetworkImage("https://i.pravatar.cc/150?img=33"),
+                          backgroundImage: NetworkImage(_avatarUrl),
                           backgroundColor: Colors.white,
                         ),
                       ),
@@ -90,14 +185,16 @@ class ProfileScreen extends StatelessWidget {
                   const SizedBox(height: 16),
 
                   // Nom en vert
-                  const Text(
-                    "Moi",
-                    style: TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF4CAF50),
-                    ),
-                  ),
+                  _isLoading 
+                    ? const CircularProgressIndicator()
+                    : Text(
+                        _name,
+                        style: const TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF4CAF50),
+                        ),
+                      ),
                   const SizedBox(height: 4),
                   Text(
                     "Gooning",
@@ -123,7 +220,7 @@ class ProfileScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(30),
                         ),
                         child: ElevatedButton(
-                          onPressed: () {},
+                          onPressed: _editPseudo,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.transparent,
                             shadowColor: Colors.transparent,

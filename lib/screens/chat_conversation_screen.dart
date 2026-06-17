@@ -21,26 +21,36 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
-  String _selectedStyle = 'normal';
-  final List<String> _styles = ['normal', 'pirate', 'yoda', 'soutenu', 'wesh'];
+  String _selectedStyle = 'brainrot';
+  final List<String> _styles = ['brainrot', 'soutenu', 'debile'];
+
+  bool _isTyping = false;
+  bool _isSending = false;
 
   @override
   void initState() {
     super.initState();
+    _messageController.addListener(() {
+      setState(() {
+        _isTyping = _messageController.text.trim().isNotEmpty;
+      });
+    });
   }
 
   Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty || _isSending) return;
     
+    setState(() => _isSending = true);
     _messageController.clear();
     
     try {
       await Supabase.instance.client.functions.invoke(
         'alter_message',
         body: {
-          'original_text': text,
-          'recipient_id': widget.chat.senderName, // ou un vrai ID de contact si disponible
+          'sender_id': Supabase.instance.client.auth.currentUser!.id,
+          'receiver_id': widget.chat.id,
+          'original_message': text,
           'style': _selectedStyle,
         },
       );
@@ -56,6 +66,15 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
       });
     } catch (e) {
       debugPrint("Erreur Supabase: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Erreur: $e"), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSending = false);
+      }
     }
   }
 
@@ -109,10 +128,7 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                         ],
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.more_vert, color: Colors.white),
-                      onPressed: () {},
-                    ),
+                    const SizedBox(width: 16),
                   ],
                 ),
               ),
@@ -131,7 +147,14 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                   return const Center(child: CircularProgressIndicator());
                 }
                 
-                final messagesData = snapshot.data!;
+                final myId = Supabase.instance.client.auth.currentUser!.id;
+                final friendId = widget.chat.id;
+                
+                final messagesData = snapshot.data!.where((msgMap) {
+                  final sId = msgMap['sender_id'];
+                  final rId = msgMap['receiver_id'];
+                  return (sId == myId && rId == friendId) || (sId == friendId && rId == myId);
+                }).toList();
                 
                 return ListView.builder(
                   controller: _scrollController,
@@ -141,9 +164,8 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                     if (index == 0) return _buildDateChip("Aujourd'hui");
                     
                     final msgMap = messagesData[index - 1];
-                    // Adapt the keys below to your actual Supabase table schema
-                    final isMe = msgMap['is_me'] == true || msgMap['sender_id'] == 'me';
-                    final text = msgMap['content'] ?? msgMap['text'] ?? '';
+                    final isMe = msgMap['sender_id'] == myId;
+                    final text = msgMap['text'] ?? '';
                     final time = 'Maintenant'; // Format map['created_at'] here if desired
                     
                     final msg = _Message(text: text, isMe: isMe, time: time);
@@ -213,28 +235,22 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  // Bouton paramètres
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF4CAF50),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.settings_rounded, color: Colors.white, size: 22),
-                  ),
-                  const SizedBox(width: 8),
                   // Bouton envoyer
                   GestureDetector(
-                    onTap: _sendMessage,
+                    onTap: (_isTyping && !_isSending) ? _sendMessage : null,
                     child: Container(
                       width: 44,
                       height: 44,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF4CAF50).withOpacity(0.5),
+                        color: (_isTyping && !_isSending) ? const Color(0xFF4CAF50) : Colors.grey[400],
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                      child: _isSending
+                          ? const Padding(
+                              padding: EdgeInsets.all(12.0),
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                            )
+                          : const Icon(Icons.send_rounded, color: Colors.white, size: 20),
                     ),
                   ),
                 ],

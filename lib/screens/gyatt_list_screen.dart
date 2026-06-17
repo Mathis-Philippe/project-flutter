@@ -16,6 +16,8 @@ class _GyattListScreenState extends State<GyattListScreen>
 
   List<Contact> _myContacts = [];
   List<Contact> _suggestions = [];
+  List<Contact> _filteredContacts = [];
+  List<Contact> _filteredSuggestions = [];
   bool _isLoading = true;
 
   List<Color> get _gradientColors => _tabController.index == 0
@@ -27,7 +29,16 @@ class _GyattListScreenState extends State<GyattListScreen>
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(() => setState(() {}));
+    _searchController.addListener(_filterLists);
     _loadData();
+  }
+
+  void _filterLists() {
+    final query = _searchController.text.toLowerCase();
+    setState(() {
+      _filteredContacts = _myContacts.where((c) => c.name.toLowerCase().contains(query)).toList();
+      _filteredSuggestions = _suggestions.where((c) => c.name.toLowerCase().contains(query)).toList();
+    });
   }
 
   Future<void> _loadData() async {
@@ -51,7 +62,7 @@ class _GyattListScreenState extends State<GyattListScreen>
         
         final contact = Contact(
           id: p['id'],
-          name: p['name'] ?? 'Utilisateur',
+          name: p['username'] ?? 'Utilisateur',
           avatarUrl: p['avatar_url'] ?? 'https://i.pravatar.cc/150?u=${p['id']}',
           isOnline: true,
           isContact: friendIds.contains(p['id']),
@@ -70,6 +81,7 @@ class _GyattListScreenState extends State<GyattListScreen>
           _suggestions = suggests;
           _isLoading = false;
         });
+        _filterLists();
       }
     } catch (e) {
       debugPrint("Erreur lors du chargement des amis: $e");
@@ -213,7 +225,7 @@ class _GyattListScreenState extends State<GyattListScreen>
                       children: [
                         const Text("Suggestions"),
                         const SizedBox(width: 6),
-                        _badge(_suggestions.length, const Color(0xFF00BCD4)),
+                        _badge(_filteredSuggestions.length, const Color(0xFF00BCD4)),
                       ],
                     ),
                   ),
@@ -223,7 +235,7 @@ class _GyattListScreenState extends State<GyattListScreen>
                       children: [
                         const Text("Mes contacts"),
                         const SizedBox(width: 6),
-                        _badge(_myContacts.length, const Color(0xFF4CAF50)),
+                        _badge(_filteredContacts.length, const Color(0xFF4CAF50)),
                       ],
                     ),
                   ),
@@ -263,9 +275,9 @@ class _GyattListScreenState extends State<GyattListScreen>
   Widget _buildSuggestionsList() {
     return ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: _suggestions.length,
+      itemCount: _filteredSuggestions.length,
       itemBuilder: (context, index) {
-        final contact = _suggestions[index];
+        final contact = _filteredSuggestions[index];
         return _buildSuggestionTile(contact);
       },
     );
@@ -331,9 +343,9 @@ class _GyattListScreenState extends State<GyattListScreen>
   Widget _buildContactsList() {
     return ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: _myContacts.length,
+      itemCount: _filteredContacts.length,
       itemBuilder: (context, index) {
-        final contact = _myContacts[index];
+        final contact = _filteredContacts[index];
         return _buildContactTile(contact);
       },
     );
