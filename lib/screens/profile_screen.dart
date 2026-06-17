@@ -44,7 +44,7 @@ class ProfileScreen extends StatelessWidget {
             const Spacer(),
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redLight,
+                backgroundColor: Colors.red[50],
                 foregroundColor: Colors.red,
                 minimumSize: const Size(double.infinity, 50),
               ),
